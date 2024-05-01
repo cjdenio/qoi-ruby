@@ -18,19 +18,35 @@ module Qoif
 
     def encode(pixels, io)
       @cache = []
-      @previous_pixel = 0x000000FF
-      write_to_cache @previous_pixel
+      previous_pixel = 0x000000FF
+      write_to_cache previous_pixel
 
       io.write [*"qoif".unpack("C4"), @width, @height, @channels, 0].pack("C4L>2CC")
 
-      pixels.each do |pixel|
-        if pos = find_in_cache(pixel)
+      run = 0
+
+      pixels.each_with_index do |pixel, index|
+        if run > 0 && (pixel != previous_pixel || run == 62 || index == pixels.length - 1)
+          io.write [0b11000000 | (run - 1)].pack("C")
+          run = 0
+        end
+
+        if pixel == previous_pixel
+          run += 1
+        elsif pos = find_in_cache(pixel)
           io.write [pos].pack("C")
-        elsif (pixel & 0xFF) == (@previous_pixel & 0xFF) &&
-          (r_diff, g_diff, b_diff = pixel_difference(pixel, @previous_pixel)) && 
+        elsif (pixel & 0xFF) == (previous_pixel & 0xFF) &&
+          (r_diff, g_diff, b_diff = pixel_difference(pixel, previous_pixel)) && 
           r_diff.between?(-2, 1) && g_diff.between?(-2, 1) && b_diff.between?(-2, 1)
 
           io.write [0b01000000 | ((r_diff + 2) << 4) | ((g_diff + 2) << 2) | (b_diff + 2)].pack("C")
+        elsif @channels == 3 || (pixel & 0xFF) == (previous_pixel & 0xFF)
+          io.write [
+            0b11111110,
+            pixel >> 24,
+            (pixel >> 16) & 0xFF,
+            (pixel >> 8) & 0xFF,
+          ].pack("C4")
         else
           io.write [
             0b11111111,
@@ -38,8 +54,8 @@ module Qoif
           ].pack("CL>")
         end
 
-        write_to_cache pixel
-        @previous_pixel = pixel
+        write_to_cache(pixel)
+        previous_pixel = pixel
       end
 
       io.write "\x00\x00\x00\x00\x00\x00\x00\x01"
