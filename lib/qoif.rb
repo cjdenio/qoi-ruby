@@ -26,6 +26,8 @@ module Qoif
       run = 0
 
       pixels.each_with_index do |pixel, index|
+        pixel |= 0xFF if @channels == 3
+
         if run > 0 && (pixel != previous_pixel || run == 62 || index == pixels.length - 1)
           io.write [0b11000000 | (run - 1)].pack("C")
           run = 0
