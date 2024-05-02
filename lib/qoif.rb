@@ -26,22 +26,23 @@ module Qoif
       run = 0
 
       pixels.each_with_index do |pixel, index|
+        # set alpha channel to 0xFF
         pixel |= 0xFF if @channels == 3
 
         if run > 0 && (pixel != previous_pixel || run == 62 || index == pixels.length - 1)
-          io.write [0b11000000 | (run - 1)].pack("C")
+          io.write (0b11000000 | (run - 1)).chr
           run = 0
         end
 
         if pixel == previous_pixel
           run += 1
         elsif pos = find_in_cache(pixel)
-          io.write [pos].pack("C")
+          io.write pos.chr
         elsif (pixel & 0xFF) == (previous_pixel & 0xFF) &&
           (r_diff, g_diff, b_diff = pixel_difference(pixel, previous_pixel)) && 
           r_diff.between?(-2, 1) && g_diff.between?(-2, 1) && b_diff.between?(-2, 1)
 
-          io.write [0b01000000 | ((r_diff + 2) << 4) | ((g_diff + 2) << 2) | (b_diff + 2)].pack("C")
+          io.write (0b01000000 | ((r_diff + 2) << 4) | ((g_diff + 2) << 2) | (b_diff + 2)).chr
         elsif @channels == 3 || (pixel & 0xFF) == (previous_pixel & 0xFF)
           io.write [
             0b11111110,
